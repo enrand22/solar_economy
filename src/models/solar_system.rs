@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 use super::{Star, Planet};
 use super::star::StarType;
+use crate::economy::ProductType;
 
 pub struct SolarSystem {
     pub star: Star,
@@ -38,7 +39,7 @@ impl SolarSystem {
             let base_orbital_radius = min_orbital_radius + (i as f32 * spacing);
 
             // Add random variation to orbital radius (±20% of spacing)
-            let variation = rand::gen_range(-spacing * 0.2, spacing * 0.2);
+            let variation = rand::gen_range(-spacing * 0.1, spacing * 0.8);
             let orbital_radius = (base_orbital_radius + variation).max(min_orbital_radius);
 
             // Random orbital speed (slower for outer planets, faster for inner)
@@ -60,12 +61,17 @@ impl SolarSystem {
             // Random initial angle
             let initial_angle = rand::gen_range(0.0, std::f32::consts::TAU);
 
+            // Assign product type cyclically to ensure variety
+            let products = ProductType::all();
+            let product = products[i % products.len()];
+
             planets.push(Planet::new(
                 orbital_radius,
                 orbital_speed,
                 radius,
                 color,
                 initial_angle,
+                product,
             ));
         }
 

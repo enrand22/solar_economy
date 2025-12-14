@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 use super::Planet;
+use crate::economy::{Inventory, FUEL_CONSUMPTION_PER_SECOND, FOOD_CONSUMPTION_INTERVAL, FOOD_CONSUMED_PER_INTERVAL};
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum SpaceshipState {
@@ -19,6 +20,8 @@ pub struct Spaceship {
     pub state: SpaceshipState,
     pub landed_planet_index: Option<usize>,
     pub animation_progress: f32,
+    pub inventory: Inventory,
+    pub food_timer: f32, // Timer for food consumption
 }
 
 impl Spaceship {
@@ -29,10 +32,12 @@ impl Spaceship {
             rotation: 0.0,
             size: 15.0,
             base_size: 15.0,
-            speed: 100.0, // Reduced from 200.0
+            speed: 100.0,
             state: SpaceshipState::Flying,
             landed_planet_index: None,
             animation_progress: 0.0,
+            inventory: Inventory::new(),
+            food_timer: 0.0,
         }
     }
 
@@ -89,10 +94,31 @@ impl Spaceship {
     }
 
     pub fn update(&mut self, dt: f32, planets: &[Planet], star_position: Vec2) {
+        // Food consumption timer
+        self.food_timer += dt;
+        if self.food_timer >= FOOD_CONSUMPTION_INTERVAL {
+            self.food_timer = 0.0;
+            match self.state {
+                SpaceshipState::Flying => {
+                    self.inventory.food = (self.inventory.food - FOOD_CONSUMED_PER_INTERVAL).max(0);
+                }
+                _ => {}
+            }
+        }
+
         match self.state {
             SpaceshipState::Flying => {
-                self.position += self.velocity * dt;
-                // No bounds checking - spaceship can fly anywhere in the world
+                // Only move if we have fuel
+                if self.inventory.fuel > 0.0 && self.velocity.length() > 0.0 {
+                    self.position += self.velocity * dt;
+
+                    // Consume fuel when moving
+                    let fuel_consumed = FUEL_CONSUMPTION_PER_SECOND * dt;
+                    self.inventory.fuel = (self.inventory.fuel - fuel_consumed).max(0.0);
+                } else if self.inventory.fuel == 0.0 {
+                    // No fuel - can't move
+                    self.velocity = Vec2::ZERO;
+                }
             }
             SpaceshipState::Landing => {
                 // Animate size decrease
@@ -100,6 +126,13 @@ impl Spaceship {
                 if self.animation_progress >= 1.0 {
                     self.animation_progress = 1.0;
                     self.state = SpaceshipState::Landed;
+
+                    // Auto-sell cargo when landing completes
+                    if let Some(planet_idx) = self.landed_planet_index {
+                        if let Some(planet) = planets.get(planet_idx) {
+                            self.inventory.sell_all_cargo(planet.product);
+                        }
+                    }
                 }
                 self.size = self.base_size * (1.0 - self.animation_progress * 0.7); // Shrink to 30% size
 
@@ -139,7 +172,7 @@ impl Spaceship {
     }
 
     pub fn find_nearby_planet(&self, planets: &[Planet], star_position: Vec2) -> Option<usize> {
-        let proximity_threshold = 10.0;
+        let proximity_threshold = 20.0;
 
         for (i, planet) in planets.iter().enumerate() {
             let planet_pos = planet.position(star_position);

@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use crate::economy::ProductType;
 
 pub struct Planet {
     pub angle: f32,
@@ -6,16 +7,18 @@ pub struct Planet {
     pub orbital_speed: f32,
     pub radius: f32,
     pub color: Color,
+    pub product: ProductType,
 }
 
 impl Planet {
-    pub fn new(orbital_radius: f32, orbital_speed: f32, radius: f32, color: Color, initial_angle: f32) -> Self {
+    pub fn new(orbital_radius: f32, orbital_speed: f32, radius: f32, color: Color, initial_angle: f32, product: ProductType) -> Self {
         Self {
             angle: initial_angle,
             orbital_radius,
             orbital_speed,
             radius,
             color,
+            product,
         }
     }
 
